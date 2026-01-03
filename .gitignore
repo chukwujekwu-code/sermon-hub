@@ -55,4 +55,4 @@ htmlcov/
 *.log
 logs/
 
-*CLAUDE
+CLAUDE.md
