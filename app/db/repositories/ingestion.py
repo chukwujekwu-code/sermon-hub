@@ -3,7 +3,7 @@
 from datetime import datetime, UTC
 from typing import Any
 
-import aiosqlite
+import libsql_experimental as libsql
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -12,13 +12,13 @@ logger = structlog.get_logger(__name__)
 class IngestionRepository:
     """Repository for ingestion status CRUD operations."""
 
-    def __init__(self, connection: aiosqlite.Connection):
+    def __init__(self, connection: libsql.Connection):
         """Initialize with database connection."""
         self.conn = connection
 
     async def create(self, video_id: str, status: str = "pending") -> int:
         """Create a new ingestion status record."""
-        cursor = await self.conn.execute(
+        cursor = self.conn.execute(
             """
             INSERT INTO ingestion_status (video_id, status)
             VALUES (?, ?)
@@ -26,17 +26,20 @@ class IngestionRepository:
             """,
             (video_id, status),
         )
-        await self.conn.commit()
+        self.conn.commit()
         return cursor.lastrowid or 0
 
     async def get_by_video_id(self, video_id: str) -> dict[str, Any] | None:
         """Get ingestion status for a video."""
-        cursor = await self.conn.execute(
+        cursor = self.conn.execute(
             "SELECT * FROM ingestion_status WHERE video_id = ?",
             (video_id,),
         )
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        columns = [desc[0] for desc in cursor.description]
+        return dict(zip(columns, row))
 
     async def update_status(
         self,
@@ -65,8 +68,8 @@ class IngestionRepository:
             SET {", ".join(fields)}
             WHERE video_id = ?
         """
-        await self.conn.execute(query, values)
-        await self.conn.commit()
+        self.conn.execute(query, values)
+        self.conn.commit()
 
         logger.info("ingestion_status_updated", video_id=video_id, status=status)
 
@@ -129,7 +132,7 @@ class IngestionRepository:
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """List ingestion records by status."""
-        cursor = await self.conn.execute(
+        cursor = self.conn.execute(
             """
             SELECT * FROM ingestion_status
             WHERE status = ?
@@ -138,8 +141,9 @@ class IngestionRepository:
             """,
             (status, limit),
         )
-        rows = await cursor.fetchall()
-        return [dict(row) for row in rows]
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        return [dict(zip(columns, row)) for row in rows]
 
     async def list_failed(
         self,
@@ -147,7 +151,7 @@ class IngestionRepository:
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """List failed ingestions that can be retried."""
-        cursor = await self.conn.execute(
+        cursor = self.conn.execute(
             """
             SELECT * FROM ingestion_status
             WHERE status = 'failed' AND error_count < ?
@@ -156,26 +160,28 @@ class IngestionRepository:
             """,
             (max_error_count, limit),
         )
-        rows = await cursor.fetchall()
-        return [dict(row) for row in rows]
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        return [dict(zip(columns, row)) for row in rows]
 
     async def count_by_status(self, status: str) -> int:
         """Count ingestion records by status."""
-        cursor = await self.conn.execute(
+        cursor = self.conn.execute(
             "SELECT COUNT(*) FROM ingestion_status WHERE status = ?",
             (status,),
         )
-        row = await cursor.fetchone()
+        row = cursor.fetchone()
         return row[0] if row else 0
 
     async def get_stats(self) -> dict[str, int]:
         """Get ingestion statistics by status."""
-        cursor = await self.conn.execute(
+        cursor = self.conn.execute(
             """
             SELECT status, COUNT(*) as count
             FROM ingestion_status
             GROUP BY status
             """
         )
-        rows = await cursor.fetchall()
-        return {row["status"]: row["count"] for row in rows}
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        return {dict(zip(columns, row))["status"]: dict(zip(columns, row))["count"] for row in rows}

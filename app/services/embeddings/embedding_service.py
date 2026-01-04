@@ -1,32 +1,28 @@
-"""Embedding service using sentence-transformers."""
+"""Embedding service using FastEmbed (ONNX-based)."""
 
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import structlog
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
-_executor = ThreadPoolExecutor(max_workers=2)
-
 
 class EmbeddingService:
-    """Service for generating text embeddings."""
+    """Service for generating text embeddings using FastEmbed."""
 
     def __init__(self):
         """Initialize the embedding service."""
-        self._model: SentenceTransformer | None = None
+        self._model: TextEmbedding | None = None
 
     @property
-    def model(self) -> SentenceTransformer:
+    def model(self) -> TextEmbedding:
         """Get the embedding model, loading if needed."""
         if self._model is None:
             logger.info("loading_embedding_model", model=settings.embedding_model)
-            self._model = SentenceTransformer(settings.embedding_model)
+            self._model = TextEmbedding(model_name=settings.embedding_model)
             logger.info("embedding_model_loaded", model=settings.embedding_model)
         return self._model
 
@@ -39,12 +35,8 @@ class EmbeddingService:
         Returns:
             List of embedding vectors
         """
-        embeddings = self.model.encode(
-            texts,
-            convert_to_numpy=True,
-            show_progress_bar=len(texts) > 10,
-        )
-        return embeddings.tolist()
+        embeddings = list(self.model.embed(texts))
+        return [emb.tolist() for emb in embeddings]
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings asynchronously.
@@ -55,9 +47,8 @@ class EmbeddingService:
         Returns:
             List of embedding vectors
         """
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(_executor, self.embed_sync, texts)
-        return result
+        # FastEmbed is already lightweight, run directly
+        return self.embed_sync(texts)
 
     async def embed_single(self, text: str) -> list[float]:
         """Embed a single text.

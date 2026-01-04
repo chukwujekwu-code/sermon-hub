@@ -21,8 +21,10 @@ class Settings(BaseSettings):
     app_name: str = "Sermon Recommender"
     debug: bool = False
 
-    # Database
-    database_url: str = Field(default="data/sermon.db")
+    # Database (Turso)
+    turso_database_url: str | None = Field(default=None)
+    turso_auth_token: str | None = Field(default=None)
+    database_url: str = Field(default="data/sermon.db")  # Fallback for local dev
 
     # Audio settings
     audio_output_dir: str = Field(default="data/audio")
@@ -50,8 +52,8 @@ class Settings(BaseSettings):
     qdrant_api_key: str | None = Field(default=None)
     qdrant_collection_name: str = Field(default="sermon_chunks")
 
-    # Embedding settings
-    embedding_model: str = Field(default="all-mpnet-base-v2")
+    # Embedding settings (FastEmbed)
+    embedding_model: str = Field(default="BAAI/bge-base-en-v1.5")
     embedding_dimensions: int = Field(default=768)
     chunk_size: int = Field(default=500, description="Target words per chunk")
     chunk_overlap: int = Field(default=50, description="Overlap words between chunks")
@@ -82,6 +84,11 @@ class Settings(BaseSettings):
     def transcripts_path(self) -> Path:
         """Get the transcripts output directory as a Path object."""
         return Path(self.transcripts_output_dir)
+
+    @property
+    def use_turso(self) -> bool:
+        """Check if Turso is configured."""
+        return bool(self.turso_database_url and self.turso_auth_token)
 
 
 settings = Settings()

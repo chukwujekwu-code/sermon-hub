@@ -6,17 +6,19 @@ pydantic-settings>=2.1.0
 
 # Async
 httpx>=0.26.0
-aiosqlite>=0.19.0
+
+# Database (Turso/libSQL)
+libsql-experimental>=0.0.47
 
 # YouTube/Download
 yt-dlp>=2024.1.0
 
-# Transcription
-openai-whisper>=20231117
+# Transcription (commented out - not needed for search API)
+# openai-whisper>=20231117
 
 # Vector Database & Embeddings
 qdrant-client>=1.7.0
-sentence-transformers>=2.2.0
+fastembed>=0.2.0
 
 # LLM
 groq>=0.4.0
