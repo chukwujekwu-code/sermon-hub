@@ -2,15 +2,15 @@
   "channels": [
     {
       "name": "Pastor Poju Oyemade",
-      "url": "https://www.youtube.com/@PastorPojuOyemade",
+      "url": "https://www.youtube.com/@PastorPojuOyemade/videos/",
       "active": true,
-      "max_videos": 1000
+      "max_videos": 50
     },
     {
       "name": "Pastor Emmanuel Iren",
-      "url": "https://www.youtube.com/@pst_iren",
+      "url": "https://www.youtube.com/@pst_iren/videos",
       "active": true,
-      "max": 1000
+      "max": 50
     }
   ]
 }
