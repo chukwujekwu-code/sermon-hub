@@ -21,9 +21,9 @@ class ChannelRepository:
         cursor = self.conn.execute(
             """
             INSERT INTO channels (channel_id, channel_name, channel_url)
-            VALUES (:channel_id, :channel_name, :channel_url)
+            VALUES (?, ?, ?)
             """,
-            data,
+            (data["channel_id"], data["channel_name"], data["channel_url"]),
         )
         self.conn.commit()
         logger.info("channel_created", channel_id=data["channel_id"])

@@ -68,7 +68,7 @@ class IngestionRepository:
             SET {", ".join(fields)}
             WHERE video_id = ?
         """
-        self.conn.execute(query, values)
+        self.conn.execute(query, tuple(values))
         self.conn.commit()
 
         logger.info("ingestion_status_updated", video_id=video_id, status=status)

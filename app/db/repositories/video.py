@@ -23,12 +23,18 @@ class VideoRepository:
                 video_id, channel_id, title, description,
                 duration_seconds, published_at, thumbnail_url, view_count
             )
-            VALUES (
-                :video_id, :channel_id, :title, :description,
-                :duration_seconds, :published_at, :thumbnail_url, :view_count
-            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            data,
+            (
+                data["video_id"],
+                data["channel_id"],
+                data["title"],
+                data.get("description"),
+                data.get("duration_seconds"),
+                data.get("published_at"),
+                data.get("thumbnail_url"),
+                data.get("view_count"),
+            ),
         )
         self.conn.commit()
         logger.info("video_created", video_id=data["video_id"])
@@ -42,10 +48,7 @@ class VideoRepository:
                 video_id, channel_id, title, description,
                 duration_seconds, published_at, thumbnail_url, view_count
             )
-            VALUES (
-                :video_id, :channel_id, :title, :description,
-                :duration_seconds, :published_at, :thumbnail_url, :view_count
-            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(video_id) DO UPDATE SET
                 title = excluded.title,
                 description = excluded.description,
@@ -53,7 +56,16 @@ class VideoRepository:
                 thumbnail_url = excluded.thumbnail_url,
                 view_count = excluded.view_count
             """,
-            data,
+            (
+                data["video_id"],
+                data["channel_id"],
+                data["title"],
+                data.get("description"),
+                data.get("duration_seconds"),
+                data.get("published_at"),
+                data.get("thumbnail_url"),
+                data.get("view_count"),
+            ),
         )
         self.conn.commit()
         return cursor.lastrowid or 0
