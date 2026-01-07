@@ -110,6 +110,10 @@ def _extract_captions_sync(video_id: str) -> dict[str, Any] | None:
         "subtitleslangs": ["en", "en-orig"],
         "subtitlesformat": "vtt",
         "outtmpl": str(transcripts_dir / f"{video_id}"),
+        # Help avoid bot detection
+        "extractor_args": {"youtube": {"player_client": ["web", "android"]}},
+        "sleep_interval": 1,
+        "max_sleep_interval": 3,
     }
 
     try:

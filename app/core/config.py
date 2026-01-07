@@ -46,7 +46,7 @@ class Settings(BaseSettings):
 
     # Ingestion settings
     default_max_videos: int = Field(default=10)
-    min_video_duration_minutes: int = Field(default=15, description="Minimum video duration in minutes")
+    min_video_duration_minutes: int = Field(default=4, description="Minimum video duration in minutes")
 
     # Retry settings
     max_retry_attempts: int = Field(default=3)

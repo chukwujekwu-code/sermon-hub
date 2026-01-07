@@ -18,6 +18,10 @@ on:
         default: '50'
         type: string
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -47,7 +51,7 @@ jobs:
         run: |
           if [ -n "${{ inputs.single_channel_url }}" ]; then
             echo "Syncing single channel: ${{ inputs.single_channel_url }}"
-            python scripts/sync_channel.py "${{ inputs.single_channel_url }}" --max-videos ${{ inputs.max_videos || '50' }}
+            python scripts/sync_channel.py --channel "${{ inputs.single_channel_url }}" --max-videos ${{ inputs.max_videos || '50' }}
           else
             echo "Syncing all channels from channels.json"
             python scripts/sync_all_channels.py

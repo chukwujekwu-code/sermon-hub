@@ -58,7 +58,7 @@ async def main(
         print("=" * 50)
         print(f"Channel: {result['channel_name']}")
         print(f"Videos found: {result['videos_found']}")
-        print(f"Videos skipped (< 15 min): {result.get('videos_skipped', 0)}")
+        print(f"Videos skipped (< {settings.min_video_duration_minutes} min): {result.get('videos_skipped', 0)}")
         print(f"Videos created: {result['videos_created']}")
         print(f"Videos downloaded: {result['videos_downloaded']}")
         print(f"Videos transcribed: {result['videos_transcribed']}")

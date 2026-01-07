@@ -28,6 +28,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
 from app.db.connection import db
 from app.services.ingestion.orchestrator import IngestionOrchestrator
@@ -92,7 +93,7 @@ async def main(
         print(f"SYNC COMPLETE - {result['channel_name']}")
         print(f"{'='*50}")
         print(f"Videos checked:     {result['videos_found']}")
-        print(f"Videos skipped:     {result.get('videos_skipped', 0)} (< 15 min)")
+        print(f"Videos skipped:     {result.get('videos_skipped', 0)} (< {settings.min_video_duration_minutes} min)")
         print(f"New videos added:   {result['videos_created']}")
         print(f"Transcribed:        {result['videos_transcribed']}")
         print(f"Failed:             {result['videos_failed']}")
