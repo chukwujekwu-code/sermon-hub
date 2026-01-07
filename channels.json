@@ -4,7 +4,13 @@
       "name": "Pastor Poju Oyemade",
       "url": "https://www.youtube.com/@PastorPojuOyemade",
       "active": true,
-      "max_videos": 50
+      "max_videos": 1000
+    },
+    {
+      "name": "Pastor Emmanuel Iren",
+      "url": "https://www.youtube.com/@pst_iren",
+      "active": true,
+      "max": 1000
     }
   ]
 }
