@@ -104,18 +104,18 @@ class IngestionRepository:
     async def set_completed(
         self,
         video_id: str,
-        transcript_path: str,
         transcript_text: str,
+        transcript_path: str | None = None,
     ) -> None:
         """Mark video as completed with transcript info."""
         now = datetime.now(UTC).isoformat()
-        await self.update_status(
-            video_id,
-            "completed",
-            transcript_path=transcript_path,
-            transcript_text=transcript_text,
-            transcription_completed_at=now,
-        )
+        kwargs: dict[str, Any] = {
+            "transcript_text": transcript_text,
+            "transcription_completed_at": now,
+        }
+        if transcript_path:
+            kwargs["transcript_path"] = transcript_path
+        await self.update_status(video_id, "completed", **kwargs)
 
     async def set_failed(self, video_id: str, error_message: str) -> None:
         """Mark video as failed with error message."""

@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     turso_auth_token: str | None = Field(default=None)
     database_url: str = Field(default="data/sermon.db")  # Fallback for local dev
 
+    # MongoDB (transcripts)
+    mongodb_uri: str | None = Field(default=None)
+    mongodb_database: str = Field(default="sermon_recommender")
+
     # Audio settings
     audio_output_dir: str = Field(default="data/audio")
     audio_format: Literal["mp3", "wav", "m4a"] = Field(default="mp3")
@@ -89,6 +93,11 @@ class Settings(BaseSettings):
     def use_turso(self) -> bool:
         """Check if Turso is configured."""
         return bool(self.turso_database_url and self.turso_auth_token)
+
+    @property
+    def use_mongodb(self) -> bool:
+        """Check if MongoDB is configured."""
+        return bool(self.mongodb_uri)
 
 
 settings = Settings()

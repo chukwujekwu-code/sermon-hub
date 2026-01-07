@@ -3,6 +3,7 @@
 import asyncio
 from pathlib import Path
 from typing import AsyncIterator
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -20,13 +21,18 @@ def event_loop():
 
 @pytest_asyncio.fixture
 async def test_db(tmp_path: Path) -> AsyncIterator[Database]:
-    """Create a test database."""
+    """Create a test database with temporary path."""
     db_path = tmp_path / "test.db"
-    db = Database(db_path)
 
-    await db.connect()
-    await db.init_schema()
+    # Mock settings to use the temp database
+    with patch("app.db.connection.settings") as mock_settings:
+        mock_settings.use_turso = False
+        mock_settings.database_path = db_path
 
-    yield db
+        db = Database()
+        await db.connect()
+        await db.init_schema()
 
-    await db.disconnect()
+        yield db
+
+        await db.disconnect()

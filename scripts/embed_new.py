@@ -3,7 +3,7 @@
 Embed only new transcripts that aren't already in Qdrant.
 
 This script:
-1. Finds all transcript files
+1. Finds all transcripts in MongoDB
 2. Checks which video_ids are already in Qdrant
 3. Only embeds new ones
 4. Logs results for monitoring
@@ -22,7 +22,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
+from app.db.mongodb import mongodb
 from app.db.qdrant import qdrant
+from app.db.repositories.transcript import TranscriptRepository
 from app.services.embeddings.pipeline import embedding_pipeline
 
 setup_logging()
@@ -60,15 +62,15 @@ def get_embedded_video_ids() -> set[str]:
         return set()
 
 
-def get_transcript_video_ids() -> set[str]:
-    """Get all video_ids that have transcripts."""
-    transcripts_dir = settings.transcripts_path
-    video_ids = set()
+async def get_transcript_video_ids() -> set[str]:
+    """Get all video_ids that have transcripts in MongoDB."""
+    if not mongodb.is_connected:
+        logger.warning("mongodb_not_connected")
+        return set()
 
-    for transcript_file in transcripts_dir.glob("*.json"):
-        video_ids.add(transcript_file.stem)
-
-    return video_ids
+    repo = TranscriptRepository(mongodb.db)
+    video_ids = await repo.list_all_video_ids()
+    return set(video_ids)
 
 
 async def main() -> int:
@@ -78,11 +80,14 @@ async def main() -> int:
     logger.info("embed_new_started", timestamp=start_time.isoformat())
 
     try:
+        # Connect to MongoDB
+        await mongodb.connect()
+
         # Ensure collection exists
         qdrant.ensure_collection()
 
         # Find what needs embedding
-        transcript_ids = get_transcript_video_ids()
+        transcript_ids = await get_transcript_video_ids()
         embedded_ids = get_embedded_video_ids()
         new_ids = transcript_ids - embedded_ids
 
@@ -153,6 +158,7 @@ async def main() -> int:
         return 2
     finally:
         qdrant.close()
+        await mongodb.disconnect()
 
 
 if __name__ == "__main__":

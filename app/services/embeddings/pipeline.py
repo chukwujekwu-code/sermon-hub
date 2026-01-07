@@ -1,6 +1,5 @@
 """Embedding pipeline for processing sermon transcripts."""
 
-import json
 from typing import Any
 from uuid import uuid4
 
@@ -8,7 +7,9 @@ import structlog
 from qdrant_client.http.models import PointStruct
 
 from app.core.config import settings
+from app.db.mongodb import mongodb
 from app.db.qdrant import qdrant
+from app.db.repositories.transcript import TranscriptRepository
 from app.services.embeddings.chunker import Chunk, chunk_text
 from app.services.embeddings.cleaner import clean_transcript
 from app.services.embeddings.embedding_service import embedding_service
@@ -24,7 +25,7 @@ class EmbeddingPipeline:
 
     def __init__(self):
         """Initialize the embedding pipeline."""
-        self.transcripts_dir = settings.transcripts_path
+        pass
 
     async def process_transcript(self, video_id: str) -> dict[str, Any]:
         """Process a single transcript: chunk, embed, and store.
@@ -35,15 +36,16 @@ class EmbeddingPipeline:
         Returns:
             Summary of processing
         """
-        transcript_path = self.transcripts_dir / f"{video_id}.json"
+        if not mongodb.is_connected:
+            logger.warning("mongodb_not_connected", video_id=video_id)
+            return {"video_id": video_id, "status": "mongodb_not_connected", "chunks": 0}
 
-        if not transcript_path.exists():
+        repo = TranscriptRepository(mongodb.db)
+        transcript_data = await repo.get_by_video_id(video_id)
+
+        if not transcript_data:
             logger.warning("transcript_not_found", video_id=video_id)
             return {"video_id": video_id, "status": "not_found", "chunks": 0}
-
-        # Load transcript
-        with open(transcript_path, encoding="utf-8") as f:
-            transcript_data = json.load(f)
 
         text = transcript_data.get("text", "")
         if not text:
@@ -136,8 +138,14 @@ class EmbeddingPipeline:
                 batch_size=len(batch),
             )
 
-    async def process_all_transcripts(self) -> dict[str, Any]:
-        """Process all available transcripts.
+    async def process_all_transcripts(
+        self,
+        channel_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Process all available transcripts from MongoDB.
+
+        Args:
+            channel_id: Optional channel ID to filter transcripts
 
         Returns:
             Summary of all processing
@@ -145,11 +153,25 @@ class EmbeddingPipeline:
         # Ensure collection exists
         qdrant.ensure_collection()
 
-        # Find all transcript files
-        transcript_files = list(self.transcripts_dir.glob("*.json"))
-        logger.info("transcripts_found", count=len(transcript_files))
+        if not mongodb.is_connected:
+            logger.warning("mongodb_not_connected_for_batch_processing")
+            return {
+                "total": 0,
+                "completed": 0,
+                "failed": 0,
+                "total_chunks": 0,
+            }
 
-        if not transcript_files:
+        # Get video IDs from MongoDB
+        repo = TranscriptRepository(mongodb.db)
+        if channel_id:
+            video_ids = await repo.list_video_ids_by_channel(channel_id)
+        else:
+            video_ids = await repo.list_all_video_ids()
+
+        logger.info("transcripts_found", count=len(video_ids))
+
+        if not video_ids:
             return {
                 "total": 0,
                 "completed": 0,
@@ -162,9 +184,7 @@ class EmbeddingPipeline:
         total_chunks = 0
         results = []
 
-        for transcript_file in transcript_files:
-            video_id = transcript_file.stem
-
+        for video_id in video_ids:
             try:
                 result = await self.process_transcript(video_id)
                 results.append(result)
@@ -189,7 +209,7 @@ class EmbeddingPipeline:
                 })
 
         summary = {
-            "total": len(transcript_files),
+            "total": len(video_ids),
             "completed": completed,
             "failed": failed,
             "total_chunks": total_chunks,

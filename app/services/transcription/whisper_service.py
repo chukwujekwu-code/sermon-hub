@@ -1,7 +1,6 @@
 """Whisper transcription service."""
 
 import asyncio
-import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -39,13 +38,6 @@ def _get_model():
     return _model
 
 
-def _get_transcripts_dir() -> Path:
-    """Get and ensure transcripts directory exists."""
-    transcripts_dir = settings.transcripts_path
-    transcripts_dir.mkdir(parents=True, exist_ok=True)
-    return transcripts_dir
-
-
 def _transcribe_sync(audio_path: str, video_id: str) -> dict[str, Any]:
     """Synchronous transcription implementation."""
     audio_file = Path(audio_path)
@@ -78,20 +70,6 @@ def _transcribe_sync(audio_path: str, video_id: str) -> dict[str, Any]:
             for seg in segments
         ]
 
-        # Save transcript to JSON file
-        transcripts_dir = _get_transcripts_dir()
-        transcript_path = transcripts_dir / f"{video_id}.json"
-
-        transcript_data = {
-            "video_id": video_id,
-            "text": full_text,
-            "segments": formatted_segments,
-            "language": result.get("language", "en"),
-        }
-
-        with open(transcript_path, "w", encoding="utf-8") as f:
-            json.dump(transcript_data, f, ensure_ascii=False, indent=2)
-
         logger.info(
             "transcription_completed",
             video_id=video_id,
@@ -99,10 +77,11 @@ def _transcribe_sync(audio_path: str, video_id: str) -> dict[str, Any]:
             segments_count=len(formatted_segments),
         )
 
+        # Return data for orchestrator to persist to MongoDB
         return {
             "video_id": video_id,
-            "transcript_path": str(transcript_path),
-            "transcript_text": full_text,
+            "source": "whisper",
+            "text": full_text,
             "segments": formatted_segments,
             "language": result.get("language", "en"),
         }
@@ -133,8 +112,8 @@ async def transcribe(audio_path: str, video_id: str) -> dict[str, Any]:
     return result
 
 
-def get_transcript(video_id: str) -> dict[str, Any] | None:
-    """Get a saved transcript for a video.
+async def get_transcript(video_id: str) -> dict[str, Any] | None:
+    """Get a saved transcript from MongoDB.
 
     Args:
         video_id: YouTube video ID
@@ -142,30 +121,30 @@ def get_transcript(video_id: str) -> dict[str, Any] | None:
     Returns:
         Transcript data or None if not found
     """
-    transcripts_dir = settings.transcripts_path
-    transcript_path = transcripts_dir / f"{video_id}.json"
+    from app.db.mongodb import mongodb
+    from app.db.repositories.transcript import TranscriptRepository
 
-    if not transcript_path.exists():
+    if not mongodb.is_connected:
         return None
 
-    with open(transcript_path, encoding="utf-8") as f:
-        return json.load(f)
+    repo = TranscriptRepository(mongodb.db)
+    return await repo.get_by_video_id(video_id)
 
 
-def cleanup_transcript(video_id: str) -> bool:
-    """Remove a transcript file.
+async def cleanup_transcript(video_id: str) -> bool:
+    """Remove a transcript from MongoDB.
 
     Args:
         video_id: YouTube video ID
 
     Returns:
-        True if file was removed, False otherwise
+        True if transcript was removed, False otherwise
     """
-    transcripts_dir = settings.transcripts_path
-    transcript_path = transcripts_dir / f"{video_id}.json"
+    from app.db.mongodb import mongodb
+    from app.db.repositories.transcript import TranscriptRepository
 
-    if transcript_path.exists():
-        transcript_path.unlink()
-        logger.info("transcript_cleaned_up", video_id=video_id)
-        return True
-    return False
+    if not mongodb.is_connected:
+        return False
+
+    repo = TranscriptRepository(mongodb.db)
+    return await repo.delete(video_id)

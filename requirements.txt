@@ -10,6 +10,9 @@ httpx>=0.26.0
 # Database (Turso/libSQL)
 libsql-experimental>=0.0.47
 
+# MongoDB (transcripts)
+motor>=3.3.0
+
 # YouTube/Download
 yt-dlp>=2024.1.0
 

@@ -1,7 +1,6 @@
 """YouTube caption extraction using yt-dlp."""
 
 import asyncio
-import json
 import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -142,19 +141,6 @@ def _extract_captions_sync(video_id: str) -> dict[str, Any] | None:
                 logger.info("empty_captions", video_id=video_id)
                 return None
 
-            # Save as JSON
-            transcript_path = transcripts_dir / f"{video_id}.json"
-            transcript_data = {
-                "video_id": video_id,
-                "source": "youtube_captions",
-                "text": full_text,
-                "segments": segments,
-                "language": "en",
-            }
-
-            with open(transcript_path, "w", encoding="utf-8") as f:
-                json.dump(transcript_data, f, ensure_ascii=False, indent=2)
-
             # Clean up VTT files
             for f in vtt_files:
                 f.unlink()
@@ -166,12 +152,13 @@ def _extract_captions_sync(video_id: str) -> dict[str, Any] | None:
                 segments_count=len(segments),
             )
 
+            # Return data for orchestrator to persist to MongoDB
             return {
                 "video_id": video_id,
-                "transcript_path": str(transcript_path),
-                "transcript_text": full_text,
-                "segments": segments,
                 "source": "youtube_captions",
+                "text": full_text,
+                "segments": segments,
+                "language": "en",
             }
 
     except Exception as e:

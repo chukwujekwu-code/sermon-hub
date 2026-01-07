@@ -1,0 +1,50 @@
+name: Embed New Transcripts
+
+on:
+  # Triggered by sync-channels workflow or manually
+  workflow_dispatch:
+
+  # Also run when sync completes
+  workflow_run:
+    workflows: ["Sync Channels"]
+    types:
+      - completed
+
+jobs:
+  embed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    # Only run if triggered manually OR if sync was successful
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv pip install -r requirements.txt --system
+
+      - name: Embed new transcripts
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+          QDRANT_URL: ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+        run: python scripts/embed_new.py
+
+      - name: Print summary
+        if: always()
+        run: |
+          echo "Embedding complete!"
+          echo "Check Qdrant Cloud dashboard for vector counts."

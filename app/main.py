@@ -9,6 +9,7 @@ from app.api.routes import ingestion, search
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
 from app.db.connection import db
+from app.db.mongodb import mongodb
 
 # Set up logging
 setup_logging()
@@ -30,12 +31,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         logger.warning("schema_init_skipped", reason=str(e))
 
+    # Connect to MongoDB (transcripts)
+    if settings.use_mongodb:
+        await mongodb.connect()
+        await mongodb.ensure_indexes()
+
     logger.info("application_started")
 
     yield
 
     # Shutdown
     logger.info("application_stopping")
+    if mongodb.is_connected:
+        await mongodb.disconnect()
     await db.disconnect()
     logger.info("application_stopped")
 

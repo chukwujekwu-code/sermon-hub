@@ -7,10 +7,13 @@ import structlog
 
 from app.core.config import settings
 from app.db.connection import db
+from app.db.mongodb import mongodb
 from app.db.repositories.channel import ChannelRepository
 from app.db.repositories.ingestion import IngestionRepository
+from app.db.repositories.transcript import TranscriptRepository
 from app.db.repositories.video import VideoRepository
 from app.models.ingestion import IngestionStats
+from app.models.transcript import TranscriptCreate, TranscriptSegment
 from app.services.transcription import whisper_service
 from app.services.youtube import captions, downloader, metadata
 from app.services.youtube.exceptions import DownloadError, VideoUnavailableError
@@ -214,10 +217,12 @@ class IngestionOrchestrator:
             result = await captions.extract_captions(video_id)
 
             if result:
+                # Save to MongoDB
+                await self._save_transcript_to_mongodb(video_id, result)
+
                 await self.ingestion_repo.set_completed(
                     video_id,
-                    transcript_path=result["transcript_path"],
-                    transcript_text=result["transcript_text"],
+                    transcript_text=result["text"][:1000],  # Store preview only
                 )
                 logger.info(
                     "captions_obtained",
@@ -251,10 +256,12 @@ class IngestionOrchestrator:
 
             result = await whisper_service.transcribe(audio_path, video_id)
 
+            # Save to MongoDB
+            await self._save_transcript_to_mongodb(video_id, result)
+
             await self.ingestion_repo.set_completed(
                 video_id,
-                transcript_path=result["transcript_path"],
-                transcript_text=result["transcript_text"],
+                transcript_text=result["text"][:1000],  # Store preview only
             )
 
             return result
@@ -263,6 +270,51 @@ class IngestionOrchestrator:
             await self.ingestion_repo.set_failed(video_id, str(e))
             logger.error("transcription_failed", video_id=video_id, error=str(e))
             return None
+
+    async def _save_transcript_to_mongodb(
+        self,
+        video_id: str,
+        result: dict[str, Any],
+    ) -> None:
+        """Save transcript data to MongoDB.
+
+        Args:
+            video_id: YouTube video ID
+            result: Transcript data from captions or whisper
+        """
+        if not mongodb.is_connected:
+            logger.warning("mongodb_not_connected", video_id=video_id)
+            return
+
+        # Get video and channel info for denormalization
+        video = await self.video_repo.get_by_video_id(video_id)
+        if not video:
+            logger.warning("video_not_found_for_transcript", video_id=video_id)
+            return
+
+        channel = await self.channel_repo.get_by_channel_id(video["channel_id"])
+        channel_name = channel["channel_name"] if channel else "Unknown"
+
+        # Build transcript segments
+        segments = [
+            TranscriptSegment(start=s["start"], end=s["end"], text=s["text"])
+            for s in result.get("segments", [])
+        ]
+
+        # Create transcript document
+        transcript = TranscriptCreate(
+            video_id=video_id,
+            channel_id=video["channel_id"],
+            channel_name=channel_name,
+            source=result.get("source", "youtube_captions"),
+            text=result.get("text", ""),
+            segments=segments,
+            language=result.get("language", "en"),
+        )
+
+        # Save to MongoDB
+        repo = TranscriptRepository(mongodb.db)
+        await repo.upsert(transcript)
 
     async def retry_failed(
         self,
