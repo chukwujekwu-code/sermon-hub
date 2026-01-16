@@ -31,10 +31,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         logger.warning("schema_init_skipped", reason=str(e))
 
-    # Connect to MongoDB (transcripts)
+    # Connect to MongoDB (transcripts) - optional, app works without it
     if settings.use_mongodb:
-        await mongodb.connect()
-        await mongodb.ensure_indexes()
+        try:
+            await mongodb.connect()
+            await mongodb.ensure_indexes()
+        except Exception as e:
+            logger.warning("mongodb_connection_failed", error=str(e))
 
     logger.info("application_started")
 
