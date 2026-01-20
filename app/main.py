@@ -40,12 +40,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.warning("mongodb_connection_failed", error=str(e))
 
-    # Pre-load embedding model to avoid memory spike on first request
-    try:
-        _ = embedding_service.model  # Triggers lazy load
-        logger.info("embedding_model_preloaded")
-    except Exception as e:
-        logger.warning("embedding_model_preload_failed", error=str(e))
+    # Log embedding service info (Cohere API - no local model to preload)
+    logger.info("embedding_service_ready", **embedding_service.get_model_info())
 
     logger.info("application_started")
 
