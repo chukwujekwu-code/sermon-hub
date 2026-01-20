@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
 from app.db.connection import db
 from app.db.mongodb import mongodb
+from app.services.embeddings import embedding_service
 
 # Set up logging
 setup_logging()
@@ -38,6 +39,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await mongodb.ensure_indexes()
         except Exception as e:
             logger.warning("mongodb_connection_failed", error=str(e))
+
+    # Pre-load embedding model to avoid memory spike on first request
+    try:
+        _ = embedding_service.model  # Triggers lazy load
+        logger.info("embedding_model_preloaded")
+    except Exception as e:
+        logger.warning("embedding_model_preload_failed", error=str(e))
 
     logger.info("application_started")
 

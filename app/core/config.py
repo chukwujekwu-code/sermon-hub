@@ -56,9 +56,10 @@ class Settings(BaseSettings):
     qdrant_api_key: str | None = Field(default=None)
     qdrant_collection_name: str = Field(default="sermon_chunks")
 
-    # Embedding settings (FastEmbed)
-    embedding_model: str = Field(default="BAAI/bge-base-en-v1.5")
-    embedding_dimensions: int = Field(default=768)
+    # Embedding settings (Cohere)
+    cohere_api_key: str | None = Field(default=None)
+    embedding_model: str = Field(default="embed-english-v3.0")
+    embedding_dimensions: int = Field(default=1024)
     chunk_size: int = Field(default=500, description="Target words per chunk")
     chunk_overlap: int = Field(default=50, description="Overlap words between chunks")
 

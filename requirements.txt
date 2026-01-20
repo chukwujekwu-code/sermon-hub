@@ -21,7 +21,7 @@ yt-dlp>=2024.1.0
 
 # Vector Database & Embeddings
 qdrant-client>=1.7.0
-fastembed>=0.2.0
+cohere>=5.0.0
 
 # LLM
 groq>=0.4.0
