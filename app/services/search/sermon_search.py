@@ -43,6 +43,7 @@ class SermonSearchService:
 
         # Step 2: Embed the search query
         query_embedding = await embedding_service.embed_single(search_query)
+        logger.info("query_embedded", dimensions=len(query_embedding))
 
         # Step 3: Search Qdrant for matching chunks
         search_results = qdrant.client.query_points(
@@ -52,6 +53,11 @@ class SermonSearchService:
         )
 
         # Step 4: Deduplicate by video and get top results (filter by relevance)
+        logger.info(
+            "qdrant_raw_results",
+            count=len(search_results.points),
+            top_scores=[p.score for p in search_results.points[:5]] if search_results.points else [],
+        )
         seen_videos = set()
         unique_results = []
 
